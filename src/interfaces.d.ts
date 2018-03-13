@@ -41,3 +41,15 @@ export interface Udemy {
     taxRate?: number;
     exchangeRate?: number;
 }
+
+export interface EnrollmentsPerDay {
+    courseName: string;
+    date: Date;
+    enrollments: number;
+}
+
+export interface SalesPerDay {
+    courseName: string;
+    date: Date;
+    sales: number;
+}

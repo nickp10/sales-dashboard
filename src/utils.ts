@@ -1,4 +1,11 @@
 class Utils {
+    coerceDate(value: string): Date {
+        if (value) {
+            return new Date(value);
+        }
+        return undefined;
+    }
+
     coerceFloat(value: string): number {
         const parsed = parseFloat(value);
         if (isNaN(parsed) || typeof parsed !== "number") {

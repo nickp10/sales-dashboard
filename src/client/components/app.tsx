@@ -1,6 +1,8 @@
+import { EnrollmentsPerDay } from "../../interfaces";
 import { ChartData } from "chart.js";
 import { Component } from "react";
 import { Line } from "react-chartjs-2";
+import * as moment from "moment";
 import * as React from "react";
 
 export interface AppProperties {
@@ -9,7 +11,7 @@ export interface AppProperties {
 export interface AppState {
     error?: string;
     isLoaded?: boolean;
-    data?: any[];
+    data?: EnrollmentsPerDay[];
 }
 
 export default class App extends Component<AppProperties, AppState> {
@@ -23,7 +25,7 @@ export default class App extends Component<AppProperties, AppState> {
     }
 
     componentDidMount() {
-        fetch("/getData")
+        fetch("/getEnrollments")
             .then(res => res.json())
             .then(res => {
                 this.setState((previousState, props) => {
@@ -50,11 +52,14 @@ export default class App extends Component<AppProperties, AppState> {
             return <div>Loading...</div>;
         } else {
             const chartData: ChartData = {
-                labels: ["January", "March", "December"],
+                labels: data.map(item => {
+                    const date = moment(item.date);
+                    return date.format("MM/DD/YY");
+                }),
                 datasets: [
                     {
                         label: "My First Dataset",
-                        data: data
+                        data: data.map(item => item.enrollments)
                     }
                 ]
             };
