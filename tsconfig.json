@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "removeComments": true,
+    "module": "commonjs",
+    "newLine": "LF",
+    "outDir": "build/",
+    "target": "es6"
+  }
+}

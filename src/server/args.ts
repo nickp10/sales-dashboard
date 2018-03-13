@@ -1,8 +1,9 @@
 import * as argv from "argv";
 import * as path from "path";
-import utils from "./utils";
+import utils from "../utils";
 
 class Args {
+    dashboardPort: number;
     mysqlHost: string;
     mysqlPort: number;
     mysqlDatabase: string;
@@ -11,21 +12,30 @@ class Args {
 
     constructor() {
         const args = argv
+            .option({ name: "dashboard-port", short: "p", type: "string" })
             .option({ name: "mysql-host", type: "string" })
             .option({ name: "mysql-port", type: "number" })
             .option({ name: "mysql-database", type: "string" })
             .option({ name: "mysql-user", type: "string" })
             .option({ name: "mysql-password", type: "string" })
             .run();
+        const argDashboardPort = utils.coerceInt(args.options["dashboard-port"]);
         const argMysqlHost = args.options["mysql-host"];
         const argMysqlPort = utils.coerceInt(args.options["mysql-port"]);
         const argMysqlDatabase = args.options["mysql-database"];
         const argMysqlUser = args.options["mysql-user"];
         const argMysqlPassword = args.options["mysql-password"];
-        this.validate(argMysqlHost, argMysqlPort, argMysqlDatabase, argMysqlUser, argMysqlPassword);
+        this.validate(argDashboardPort, argMysqlHost, argMysqlPort, argMysqlDatabase, argMysqlUser, argMysqlPassword);
     }
 
-    validate(argMysqlHost: string, argMysqlPort: number, argMysqlDatabase: string, argMysqlUser: string, argMysqlPassword: string): void {
+    validate(argDashboardPort: number, argMysqlHost: string, argMysqlPort: number, argMysqlDatabase: string, argMysqlUser: string, argMysqlPassword: string): void {
+        // Validate dashboard-port
+        this.dashboardPort = argDashboardPort || 8000;
+        if (!this.dashboardPort) {
+            console.error("The -p/--dashboard-port argument must be supplied.");
+            process.exit();
+        }
+
         // Validate mysql-host
         this.mysqlHost = argMysqlHost || "localhost";
         if (!this.mysqlHost) {
