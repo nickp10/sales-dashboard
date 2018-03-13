@@ -1,0 +1,33 @@
+{
+  "name": "sales-dashboard",
+  "version": "1.0.0",
+  "description": "A dashboard built upon chart.js for displaying sales transactions",
+  "bin": "build/index.js",
+  "main": "build/index.js",
+  "files": [
+    "build/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nickp10/sales-dashboard.git"
+  },
+  "author": "nickp10@hotmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nickp10/sales-dashboard/issues"
+  },
+  "homepage": "https://github.com/nickp10/sales-dashboard#readme",
+  "scripts": {
+    "build": "gulp build",
+    "build-debug": "gulp build-debug",
+    "prepare": "npm run build",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "express": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.11.1",
+    "@types/node": "^9.4.7"
+  }
+}
