@@ -24,9 +24,11 @@
     "start": "node build/index.js"
   },
   "dependencies": {
+    "argv": "0.0.2",
     "express": "^4.16.3"
   },
   "devDependencies": {
+    "@types/argv": "0.0.4",
     "@types/express": "^4.11.1",
     "@types/node": "^9.4.7"
   }
