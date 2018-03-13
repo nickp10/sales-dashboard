@@ -1,8 +1,9 @@
 import * as argv from "argv";
 import * as path from "path";
+import * as process from "process";
 import utils from "../utils";
 
-class Args {
+export class Args {
     dashboardPort: number;
     mysqlHost: string;
     mysqlPort: number;
@@ -32,7 +33,7 @@ class Args {
         // Validate dashboard-port
         this.dashboardPort = argDashboardPort || 8000;
         if (!this.dashboardPort) {
-            console.error("The -p/--dashboard-port argument must be supplied.");
+            console.error("The -p or --dashboard-port argument must be supplied.");
             process.exit();
         }
 

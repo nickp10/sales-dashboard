@@ -5,5 +5,5 @@ import * as process from "process";
 const app = express();
 app.use(express.static(__dirname));
 app.listen(args.dashboardPort, () => {
-    console.log(`Server started on port ${args.dashboardPort}`);
+    console.log(`Server has started on port ${args.dashboardPort}`);
 });
