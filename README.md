@@ -8,6 +8,7 @@ Command Line Interface
 ----
 This package is only usable via a command line interface (CLI). This package has the following arguments:
 
+* *-p/--dashboard-port* - **Optional.** This is the port on which the dashboard server will start. This will default to `8000`.
 * *--mysql-host* - **Optional.** This is the server name to connect to MySQL. This will default to `localhost`.
 * *--mysql-port* - **Optional.** This is the port to connect to MySQL. This will default to `3306`.
 * *--mysql-database* - **Optional.** This is the name of the MySQL database to connect to. This will default to `sales`.
