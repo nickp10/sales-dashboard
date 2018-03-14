@@ -120,6 +120,36 @@ export default class App extends Component<AppProperties, AppState> {
         }
     }
 
+    downloadableCSV(header: string, items: ItemsPerDay[]): string {
+        let content = `data:text/csv;charset=utf-8,`;
+        content += `Course Name,Date,${header}\n`;
+        for (const item of items) {
+            const itemDate = moment(item.date).format("MM/DD/YYYY");
+            const itemCount = Array.from(new Set(item.items)).length;
+            content += `${item.courseName},${itemDate},${itemCount}\n`;
+        }
+        return encodeURI(content);
+    }
+
+    downloadCSV(contents: string, filename: string): void {
+        const link = document.createElement("a");
+        link.setAttribute("href", contents);
+        link.setAttribute("download", filename);
+        link.click();
+    }
+
+    exportEnrollmentsToCSV(): void {
+        const { enrollments } = this.state;
+        const csv = this.downloadableCSV("Enrollments", enrollments);
+        this.downloadCSV(csv, "enrollmentsPerDay.csv");
+    }
+
+    exportSalesToCSV(): void {
+        const { sales } = this.state;
+        const csv = this.downloadableCSV("Sales", sales);
+        this.downloadCSV(csv, "salesPerDay.csv");
+    }
+
     render() {
         const { error, isLoaded, courses, enrollments, sales, timeframeFilterNames } = this.state;
         if (error) {
@@ -158,7 +188,10 @@ export default class App extends Component<AppProperties, AppState> {
             const canvasStyle = {
                 marginLeft: "auto",
                 marginRight: "auto",
-                width: "75%"
+                width: "80%"
+            };
+            const centerStyle = {
+                textAlign: "center"
             };
             return(
                 <div>
@@ -177,6 +210,10 @@ export default class App extends Component<AppProperties, AppState> {
                     </div>
                     <div style={canvasStyle}>
                         <Line data={chartData} />
+                    </div>
+                    <div style={centerStyle}>
+                        <button onClick={this.exportEnrollmentsToCSV.bind(this)}>Export Enrollments Per Day to CSV</button>&nbsp;&nbsp;&nbsp;
+                        <button onClick={this.exportSalesToCSV.bind(this)}>Export Sales Per Day to CSV</button>
                     </div>
                 </div>
             );
