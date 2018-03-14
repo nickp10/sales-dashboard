@@ -52,30 +52,31 @@ export default class App {
         const courseId = utils.coerceInt(req.query.courseId);
         const timeframeFilterName = req.query.timeframeFilterName;
         const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
+        const seenItems = new Set<string>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getEnrollmentsForCourse(sql, connection, map, course);
+            await this.getEnrollmentsForCourse(sql, connection, map, seenItems, course);
         } else {
             const courses = await sql.selectCourses(connection, args.mysqlDatabase);
             for (const course of courses) {
-                await this.getEnrollmentsForCourse(sql, connection, map, course);
+                await this.getEnrollmentsForCourse(sql, connection, map, seenItems, course);
             }
         }
         const flatMap = this.flattenMap(map, timeframeFilterName);
         res.status(200).send(flatMap);
     }
 
-    async getEnrollmentsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, course: Course): Promise<void> {
+    async getEnrollmentsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, course: Course): Promise<void> {
         if (course.teachableName) {
             const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
             for (const teachable of teachables) {
-                this.updateItemsPerDayMap(map, teachable.purchasedAt, `${teachable.userID || ''}`, course.courseName);
+                this.updateItemsPerDayMap(map, seenItems, teachable.purchasedAt, `${teachable.userID || ''}`, course.courseName);
             }
         }
         if (course.udemyName) {
             const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
             for (const udemy of udemys) {
-                this.updateItemsPerDayMap(map, udemy.date, udemy.userName, course.courseName);
+                this.updateItemsPerDayMap(map, seenItems, udemy.date, udemy.userName, course.courseName);
             }
         }
     }
@@ -84,30 +85,31 @@ export default class App {
         const courseId = utils.coerceInt(req.query.courseId);
         const timeframeFilterName = req.query.timeframeFilterName;
         const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
+        const seenItems = new Set<string>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getSalesForCourse(sql, connection, map, course);
+            await this.getSalesForCourse(sql, connection, map, seenItems, course);
         } else {
             const courses = await sql.selectCourses(connection, args.mysqlDatabase);
             for (const course of courses) {
-                await this.getSalesForCourse(sql, connection, map, course);
+                await this.getSalesForCourse(sql, connection, map, seenItems, course);
             }
         }
         const flatMap = this.flattenMap(map, timeframeFilterName);
         res.status(200).send(flatMap);
     }
 
-    async getSalesForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, course: Course): Promise<void> {
+    async getSalesForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, course: Course): Promise<void> {
         if (course.teachableName) {
             const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
             for (const teachable of teachables) {
-                this.updateItemsPerDayMap(map, teachable.purchasedAt, `${teachable.saleID || ''}`, course.courseName);
+                this.updateItemsPerDayMap(map, seenItems, teachable.purchasedAt, `${teachable.saleID || ''}`, course.courseName);
             }
         }
         if (course.udemyName) {
             const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
             for (const udemy of udemys) {
-                this.updateItemsPerDayMap(map, udemy.date, `${udemy.transactionID || ''}`, course.courseName);
+                this.updateItemsPerDayMap(map, seenItems, udemy.date, `${udemy.transactionID || ''}`, course.courseName);
             }
         }
     }
@@ -125,10 +127,11 @@ export default class App {
         return returnArr.filter(item => timeframeFilter(item.date)).sort((i1, i2) => i1.date.getTime() - i2.date.getTime());
     }
 
-    updateItemsPerDayMap(map: Map<number, Map<number, Map<number, ItemsPerDay>>>, date: Date, itemID: string, courseName: string): void {
-        if (!date) {
+    updateItemsPerDayMap(map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, date: Date, itemID: string, courseName: string): void {
+        if (!date || !itemID || seenItems.has(itemID)) {
             return;
         }
+        seenItems.add(itemID);
         let yearMap = map.get(date.getFullYear());
         if (!yearMap) {
             yearMap = new Map<number, Map<number, ItemsPerDay>>();
@@ -142,12 +145,20 @@ export default class App {
         let itemsPerDay = monthMap.get(date.getDate());
         if (!itemsPerDay) {
             itemsPerDay = {
-                courseName: courseName,
-                items: [],
+                courseCounts: [],
                 date: new Date(date.getFullYear(), date.getMonth(), date.getDate())
             };
             monthMap.set(date.getDate(), itemsPerDay);
         }
-        itemsPerDay.items.push(itemID);
+        const courseCounts = itemsPerDay.courseCounts;
+        let courseCount = courseCounts.find(c => c.courseName === courseName);
+        if (!courseCount) {
+            courseCount = {
+                courseName: courseName,
+                itemCount: 0
+            };
+            courseCounts.push(courseCount);
+        }
+        courseCount.itemCount++;
     }
 }

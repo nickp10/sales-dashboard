@@ -125,8 +125,9 @@ export default class App extends Component<AppProperties, AppState> {
         content += `Course Name,Date,${header}\n`;
         for (const item of items) {
             const itemDate = moment(item.date).format("MM/DD/YYYY");
-            const itemCount = Array.from(new Set(item.items)).length;
-            content += `${item.courseName},${itemDate},${itemCount}\n`;
+            for (const course of item.courseCounts) {
+                content += `${course.courseName},${itemDate},${course.itemCount}\n`;
+            }
         }
         return encodeURI(content);
     }
@@ -157,23 +158,49 @@ export default class App extends Component<AppProperties, AppState> {
         } else if (!isLoaded) {
             return <div>Loading...</div>;
         } else {
-            const chartData: ChartData = {
-                labels: Array.from(new Set(
-                    enrollments.map(item => moment(item.date))
+            const labels = Array.from(new Set(
+                enrollments.map(item => moment(item.date))
                     .concat(sales.map(item => moment(item.date)))
                     .sort((i1, i2) => i1.valueOf() - i2.valueOf())
-                    .map(i => i.format("MM/DD/YY"))
-                )),
+                    .map(i => i.format("MM/DD/YYYY"))
+            ));
+            const enrollmentsData: ItemsPerDay[] = [];
+            const salesData: ItemsPerDay[] = [];
+            for (const label of labels) {
+                // Find matching enrollment
+                const enrollment = enrollments.find(e => moment(e.date).format("MM/DD/YYYY") === label);
+                if (enrollment) {
+                    enrollmentsData.push(enrollment);
+                } else {
+                    enrollmentsData.push({
+                        date: moment(label).toDate(),
+                        courseCounts: []
+                    });
+                }
+
+                // Find matching sale
+                const sale = sales.find(s => moment(s.date).format("MM/DD/YYYY") === label);
+                if (sale) {
+                    salesData.push(sale);
+                } else {
+                    salesData.push({
+                        date: moment(label).toDate(),
+                        courseCounts: []
+                    });
+                }
+            }
+            const chartData: ChartData = {
+                labels: labels,
                 datasets: [
                     {
                         label: "Enrollments Per Day",
-                        data: enrollments.map(item => Array.from(new Set(item.items)).length),
+                        data: enrollmentsData.map(item => item.courseCounts.map(course => course.itemCount).reduce((total, count) => total + count, 0)),
                         backgroundColor: "rgba(255, 99, 132, 0.5)",
                         borderColor: "rgb(255, 99, 132)"
                     },
                     {
                         label: "Sales Per Day",
-                        data: sales.map(item => Array.from(new Set(item.items)).length),
+                        data: salesData.map(item => item.courseCounts.map(course => course.itemCount).reduce((total, count) => total + count, 0)),
                         backgroundColor: "rgba(54, 162, 235, 0.5)",
                         borderColor: "rgb(54, 162, 235)"
                     }

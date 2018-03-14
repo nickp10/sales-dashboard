@@ -67,7 +67,7 @@ export default class MySQLService {
 
     async selectTeachablesByCourseName(connection: mysql.Connection, database: string, courseName: string): Promise<Teachable[]> {
         return new Promise<Teachable[]>((resolve, reject) => {
-            const sql = `SELECT * FROM \`${database}\`.\`teachable\` WHERE \`courseName\` = ?`;
+            const sql = `SELECT * FROM \`${database}\`.\`teachable\` WHERE \`courseName\` = ? ORDER BY \`purchasedAt\` DESC`;
             connection.query(sql, [ courseName ], (error, rows) => {
                 if (error) {
                     reject(error);
@@ -82,7 +82,7 @@ export default class MySQLService {
 
     async selectUdemysByCourseName(connection: mysql.Connection, database: string, courseName: string): Promise<Udemy[]> {
         return new Promise<Udemy[]>((resolve, reject) => {
-            const sql = `SELECT * FROM \`${database}\`.\`Udemy\` WHERE \`courseName\` = ?`;
+            const sql = `SELECT * FROM \`${database}\`.\`Udemy\` WHERE \`courseName\` = ? ORDER BY \`date\` DESC`;
             connection.query(sql, [ courseName ], (error, rows) => {
                 if (error) {
                     reject(error);
