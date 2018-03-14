@@ -42,14 +42,8 @@ export interface Udemy {
     exchangeRate?: number;
 }
 
-export interface EnrollmentsPerDay {
+export interface ItemsPerDay {
     courseName: string;
     date: Date;
-    enrollments: number;
-}
-
-export interface SalesPerDay {
-    courseName: string;
-    date: Date;
-    sales: number;
+    items: string[];
 }

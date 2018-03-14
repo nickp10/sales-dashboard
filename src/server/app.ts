@@ -1,4 +1,4 @@
-import { Course, EnrollmentsPerDay } from "../interfaces";
+import { Course, ItemsPerDay } from "../interfaces";
 import args from "./args";
 import * as express from "express";
 import * as mysql from "mysql";
@@ -29,11 +29,18 @@ export default class App {
         app.use(express.static(__dirname));
         app.get("/getCourses", async (req, res) => await this.getCourses(req, res, sql, connection));
         app.get("/getEnrollments", async (req, res) => await this.getEnrollments(req, res, sql, connection));
+        app.get("/getSales", async (req, res) => await this.getSales(req, res, sql, connection));
+        app.get("/getTimeframeFilterNames", async (req, res) => await this.getTimeframeFilterNames(req, res, sql, connection));
         app.listen(args.dashboardPort, async () => await this.serverStarted());
     }
 
     async serverStarted(): Promise<void> {
         console.log(`Server has started on port ${args.dashboardPort}`);
+    }
+
+    async getTimeframeFilterNames(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
+        const timeframeFilterNames = Timeframe.getTimeframeFilterNames();
+        res.status(200).send(timeframeFilterNames);
     }
 
     async getCourses(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
@@ -43,32 +50,64 @@ export default class App {
 
     async getEnrollments(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
         const courseId = utils.coerceInt(req.query.courseId);
-        const timeframeFilterName = req.query.timeframeFilterName || "Past 30 Days";
-        const enrollmentsMap = new Map<number, Map<number, Map<number, EnrollmentsPerDay>>>();
+        const timeframeFilterName = req.query.timeframeFilterName;
+        const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getEnrollmentsForCourse(sql, connection, enrollmentsMap, course);
+            await this.getEnrollmentsForCourse(sql, connection, map, course);
         } else {
             const courses = await sql.selectCourses(connection, args.mysqlDatabase);
             for (const course of courses) {
-                await this.getEnrollmentsForCourse(sql, connection, enrollmentsMap, course);
+                await this.getEnrollmentsForCourse(sql, connection, map, course);
             }
         }
-        const enrollments = this.flattenMap(enrollmentsMap, timeframeFilterName);
-        res.status(200).send(enrollments);
+        const flatMap = this.flattenMap(map, timeframeFilterName);
+        res.status(200).send(flatMap);
     }
 
-    async getEnrollmentsForCourse(sql: MySQLService, connection: mysql.Connection, enrollments: Map<number, Map<number, Map<number, EnrollmentsPerDay>>>, course: Course): Promise<void> {
+    async getEnrollmentsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, course: Course): Promise<void> {
         if (course.teachableName) {
             const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
             for (const teachable of teachables) {
-                this.updateEnrollments(enrollments, teachable.purchasedAt, course.courseName);
+                this.updateItemsPerDayMap(map, teachable.purchasedAt, `${teachable.userID || ''}`, course.courseName);
             }
         }
         if (course.udemyName) {
             const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
             for (const udemy of udemys) {
-                this.updateEnrollments(enrollments, udemy.date, course.courseName);
+                this.updateItemsPerDayMap(map, udemy.date, udemy.userName, course.courseName);
+            }
+        }
+    }
+
+    async getSales(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
+        const courseId = utils.coerceInt(req.query.courseId);
+        const timeframeFilterName = req.query.timeframeFilterName;
+        const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
+        if (courseId) {
+            const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
+            await this.getSalesForCourse(sql, connection, map, course);
+        } else {
+            const courses = await sql.selectCourses(connection, args.mysqlDatabase);
+            for (const course of courses) {
+                await this.getSalesForCourse(sql, connection, map, course);
+            }
+        }
+        const flatMap = this.flattenMap(map, timeframeFilterName);
+        res.status(200).send(flatMap);
+    }
+
+    async getSalesForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, course: Course): Promise<void> {
+        if (course.teachableName) {
+            const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
+            for (const teachable of teachables) {
+                this.updateItemsPerDayMap(map, teachable.purchasedAt, `${teachable.saleID || ''}`, course.courseName);
+            }
+        }
+        if (course.udemyName) {
+            const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
+            for (const udemy of udemys) {
+                this.updateItemsPerDayMap(map, udemy.date, `${udemy.transactionID || ''}`, course.courseName);
             }
         }
     }
@@ -83,32 +122,32 @@ export default class App {
             }
         }
         const timeframeFilter = Timeframe.getTimeframeFilter(timeframeFilterName);
-        return returnArr;//.filter(item => timeframeFilter(item.date)).sort((i1, i2) => i1.date.getTime() - i2.date.getTime());
+        return returnArr.filter(item => timeframeFilter(item.date)).sort((i1, i2) => i1.date.getTime() - i2.date.getTime());
     }
 
-    updateEnrollments(enrollments: Map<number, Map<number, Map<number, EnrollmentsPerDay>>>, date: Date, courseName: string): void {
+    updateItemsPerDayMap(map: Map<number, Map<number, Map<number, ItemsPerDay>>>, date: Date, itemID: string, courseName: string): void {
         if (!date) {
             return;
         }
-        let yearMap = enrollments.get(date.getFullYear());
+        let yearMap = map.get(date.getFullYear());
         if (!yearMap) {
-            yearMap = new Map<number, Map<number, EnrollmentsPerDay>>();
-            enrollments.set(date.getFullYear(), yearMap);
+            yearMap = new Map<number, Map<number, ItemsPerDay>>();
+            map.set(date.getFullYear(), yearMap);
         }
         let monthMap = yearMap.get(date.getMonth());
         if (!monthMap) {
-            monthMap = new Map<number, EnrollmentsPerDay>();
+            monthMap = new Map<number, ItemsPerDay>();
             yearMap.set(date.getMonth(), monthMap);
         }
-        let enrollmentsPerDay = monthMap.get(date.getDate());
-        if (!enrollmentsPerDay) {
-            enrollmentsPerDay = {
+        let itemsPerDay = monthMap.get(date.getDate());
+        if (!itemsPerDay) {
+            itemsPerDay = {
                 courseName: courseName,
-                enrollments: 0,
+                items: [],
                 date: new Date(date.getFullYear(), date.getMonth(), date.getDate())
             };
-            monthMap.set(date.getDate(), enrollmentsPerDay);
+            monthMap.set(date.getDate(), itemsPerDay);
         }
-        enrollmentsPerDay.enrollments++;
+        itemsPerDay.items.push(itemID);
     }
 }

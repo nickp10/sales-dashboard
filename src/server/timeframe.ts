@@ -45,7 +45,7 @@ export class Timeframe {
     lastMonth(date: Date): boolean {
         const compare = moment();
         compare.subtract(1, "months");
-        return compare.years() === date.getFullYear() && compare.months() === date.getMonth();
+        return compare.year() === date.getFullYear() && compare.months() === date.getMonth();
     }
 
     last3Months(date: Date): boolean {
