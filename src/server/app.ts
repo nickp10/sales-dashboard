@@ -28,8 +28,9 @@ export default class App {
         const app = express();
         app.use(express.static(__dirname));
         app.get("/getCourses", async (req, res) => await this.getCourses(req, res, sql, connection));
-        app.get("/getTransactions", async (req, res) => await this.getTransactions(req, res, sql, connection));
+        app.get("/getPlatforms", async (req, res) => await this.getPlatforms(req, res, sql, connection));
         app.get("/getTimeframeFilterNames", async (req, res) => await this.getTimeframeFilterNames(req, res, sql, connection));
+        app.get("/getTransactions", async (req, res) => await this.getTransactions(req, res, sql, connection));
         app.listen(args.dashboardPort, async () => await this.serverStarted());
     }
 
@@ -37,41 +38,46 @@ export default class App {
         console.log(`Server has started on port ${args.dashboardPort}`);
     }
 
-    async getTimeframeFilterNames(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
-        const timeframeFilterNames = Timeframe.getTimeframeFilterNames();
-        res.status(200).send(timeframeFilterNames);
-    }
-
     async getCourses(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
         const courses = await sql.selectCourses(connection, args.mysqlDatabase);
         res.status(200).send(courses);
     }
 
+    async getPlatforms(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
+        res.status(200).send(["All Platforms", "Teachable", "Udemy"]);
+    }
+
+    async getTimeframeFilterNames(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
+        const timeframeFilterNames = Timeframe.getTimeframeFilterNames();
+        res.status(200).send(timeframeFilterNames);
+    }
+
     async getTransactions(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
         const courseId = utils.coerceInt(req.query.courseId);
+        const platform = req.query.platform;
         const timeframeFilterName = req.query.timeframeFilterName;
         const map = new Map<number, Map<number, Map<number, TransactionsPerDay>>>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getTransactionsForCourse(sql, connection, map, course);
+            await this.getTransactionsForCourse(sql, connection, map, course, platform);
         } else {
             const courses = await sql.selectCourses(connection, args.mysqlDatabase);
             for (const course of courses) {
-                await this.getTransactionsForCourse(sql, connection, map, course);
+                await this.getTransactionsForCourse(sql, connection, map, course, platform);
             }
         }
         const flatMap = this.flattenMap(map, timeframeFilterName);
         res.status(200).send(flatMap);
     }
 
-    async getTransactionsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, TransactionsPerDay>>>, course: Course): Promise<void> {
-        if (course.teachableName) {
+    async getTransactionsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, TransactionsPerDay>>>, course: Course, platform: string): Promise<void> {
+        if ((!platform || platform === "All Platforms" || platform === "Teachable") && course.teachableName) {
             const transactions = await sql.getTeachableTransactions(connection, args.mysqlDatabase, course.teachableName);
             for (const transaction of transactions) {
                 this.updateTransactionsMap(map, transaction.purchasedAt, transaction.earningsUSD, course.courseName);
             }
         }
-        if (course.udemyName) {
+        if ((!platform || platform === "All Platforms" || platform === "Udemy") && course.udemyName) {
             const transactions = await sql.getUdemyTransactions(connection, args.mysqlDatabase, course.udemyName);
             for (const transaction of transactions) {
                 this.updateTransactionsMap(map, transaction.date, transaction.price, course.courseName);

@@ -12,7 +12,9 @@ export interface AppState {
     error?: string;
     isLoaded?: boolean;
     courses?: Course[];
+    platforms?: string[];
     selectedCourse?: number;
+    selectedPlatform?: string;
     selectedTimeframeFilter?: string;
     transactions?: TransactionsPerDay[];
     timeframeFilterNames?: string[];
@@ -25,6 +27,7 @@ export default class App extends Component<AppProperties, AppState> {
             error: "",
             isLoaded: false,
             courses: [],
+            platforms: [],
             transactions: [],
             timeframeFilterNames: []
         };
@@ -36,15 +39,19 @@ export default class App extends Component<AppProperties, AppState> {
             const courses = await res1.json();
             const res2 = await fetch("/getTimeframeFilterNames");
             const timeframeFilterNames = await res2.json();
-            const transactions = await this.fetchTransactions(this.state.selectedCourse, timeframeFilterNames[0]);
+            const res3 = await fetch("/getPlatforms");
+            const platforms = await res3.json();
+            const transactions = await this.fetchTransactions(this.state.selectedCourse, platforms[0], timeframeFilterNames[0]);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: courses,
-                    transactions: transactions,
+                    platforms: platforms,
                     selectedCourse: previousState.selectedCourse,
+                    selectedPlatform: platforms[0],
                     selectedTimeframeFilter: timeframeFilterNames[0],
-                    timeframeFilterNames: timeframeFilterNames
+                    timeframeFilterNames: timeframeFilterNames,
+                    transactions: transactions
                 };
             });
         } catch (error) {
@@ -56,23 +63,50 @@ export default class App extends Component<AppProperties, AppState> {
         }
     }
 
-    async fetchTransactions(selectedCourse: number, selectedTimeframeFilter: string): Promise<TransactionsPerDay[]> {
-        const res = await fetch(`/getTransactions?courseId=${selectedCourse || ''}&timeframeFilterName=${selectedTimeframeFilter || ''}`);
+    async fetchTransactions(selectedCourse: number, selectedPlatform: string, selectedTimeframeFilter: string): Promise<TransactionsPerDay[]> {
+        const res = await fetch(`/getTransactions?courseId=${selectedCourse || ''}&platform=${selectedPlatform || ''}&timeframeFilterName=${selectedTimeframeFilter || ''}`);
         return await res.json();
     }
 
     async courseChanged(event): Promise<void> {
         try {
             const selectedCourse = event.target.value;
-            const transactions = await this.fetchTransactions(selectedCourse, this.state.selectedTimeframeFilter);
+            const transactions = await this.fetchTransactions(selectedCourse, this.state.selectedPlatform, this.state.selectedTimeframeFilter);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
-                    transactions: transactions,
+                    platforms: previousState.platforms,
                     selectedCourse: selectedCourse,
+                    selectedPlatform: previousState.selectedPlatform,
                     selectedTimeframeFilter: previousState.selectedTimeframeFilter,
-                    timeframeFilterNames: previousState.timeframeFilterNames
+                    timeframeFilterNames: previousState.timeframeFilterNames,
+                    transactions: transactions
+                };
+            });
+        } catch (error) {
+            this.setState((previousState, props) => {
+                return {
+                    error: error.message
+                };
+            });
+        }
+    }
+
+    async platformChanged(event): Promise<void> {
+        try {
+            const selectedPlatform = event.target.value;
+            const transactions = await this.fetchTransactions(this.state.selectedCourse, selectedPlatform, this.state.selectedTimeframeFilter);
+            this.setState((previousState, props) => {
+                return {
+                    isLoaded: true,
+                    courses: previousState.courses,
+                    platforms: previousState.platforms,
+                    selectedCourse: previousState.selectedCourse,
+                    selectedPlatform: selectedPlatform,
+                    selectedTimeframeFilter: previousState.selectedTimeframeFilter,
+                    timeframeFilterNames: previousState.timeframeFilterNames,
+                    transactions: transactions
                 };
             });
         } catch (error) {
@@ -87,15 +121,17 @@ export default class App extends Component<AppProperties, AppState> {
     async timeframeFilterChanged(event): Promise<void> {
         try {
             const selectedTimeframeFilter = event.target.value;
-            const transactions = await this.fetchTransactions(this.state.selectedCourse, selectedTimeframeFilter);
+            const transactions = await this.fetchTransactions(this.state.selectedCourse, this.state.selectedPlatform, selectedTimeframeFilter);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
-                    transactions: transactions,
+                    platforms: previousState.platforms,
                     selectedCourse: previousState.selectedCourse,
+                    selectedPlatform: previousState.selectedPlatform,
                     selectedTimeframeFilter: selectedTimeframeFilter,
-                    timeframeFilterNames: previousState.timeframeFilterNames
+                    timeframeFilterNames: previousState.timeframeFilterNames,
+                    transactions: transactions
                 };
             });
         } catch (error) {
@@ -139,7 +175,7 @@ export default class App extends Component<AppProperties, AppState> {
     }
 
     render() {
-        const { error, isLoaded, courses, transactions, timeframeFilterNames } = this.state;
+        const { error, isLoaded, courses, platforms, timeframeFilterNames, transactions } = this.state;
         if (error) {
             return <div>Error: {error}</div>;
         } else if (!isLoaded) {
@@ -215,12 +251,6 @@ export default class App extends Component<AppProperties, AppState> {
                     ]
                 }
             };
-            const floatLeftStyle = {
-                float: "left"
-            };
-            const floatRightStyle = {
-                float: "right"
-            };
             const canvasStyle = {
                 marginLeft: "auto",
                 marginRight: "auto",
@@ -229,20 +259,23 @@ export default class App extends Component<AppProperties, AppState> {
             const centerStyle = {
                 textAlign: "center"
             };
+            const selectStyle = {
+                marginLeft: "20px",
+                marginRight: "20px"
+            };
             return(
                 <div>
-                    <div>
-                        <div style={floatLeftStyle}>
-                            <select id="courses" onChange={this.courseChanged.bind(this)}>
-                                <option>All Courses</option>
-                                {courses.map(course => <option value={course.id}>{course.courseName}</option>)}
-                            </select>
-                        </div>
-                        <div style={floatRightStyle}>
-                            <select id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)}>
-                                {timeframeFilterNames.map(timeframeFilterName => <option value={timeframeFilterName}>{timeframeFilterName}</option>)}
-                            </select>
-                        </div>
+                    <div style={centerStyle}>
+                        <select id="courses" onChange={this.courseChanged.bind(this)} style={selectStyle}>
+                            <option>All Courses</option>
+                            {courses.map(course => <option value={course.id}>{course.courseName}</option>)}
+                        </select>
+                        <select id="platforms" onChange={this.platformChanged.bind(this)} style={selectStyle}>
+                            {platforms.map(platform => <option value={platform}>{platform}</option>)}
+                        </select>
+                        <select id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
+                            {timeframeFilterNames.map(timeframeFilterName => <option value={timeframeFilterName}>{timeframeFilterName}</option>)}
+                        </select>
                     </div>
                     <div style={canvasStyle}>
                         <Line data={chartData} options={chartOptions} />
