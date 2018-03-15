@@ -65,31 +65,67 @@ export default class MySQLService {
         });
     }
 
-    async selectTeachablesByCourseName(connection: mysql.Connection, database: string, courseName: string): Promise<Teachable[]> {
+    rowToTeachable(row: any): Teachable {
+        return {
+            id: row["id"],
+            teachableID: row["teachableID"],
+            purchasedAt: utils.coerceDate(row["purchasedAt"]),
+            courseName: row["courseName"],
+            finalPrice: row["finalPrice"],
+            earningsUSD: row["earningsUSD"],
+            coupon: row["coupon"],
+            userID: row["userID"],
+            saleID: row["saleID"]
+        };
+    }
+
+    async getTeachableTransactions(connection: mysql.Connection, database: string, courseName: string): Promise<Teachable[]> {
         return new Promise<Teachable[]>((resolve, reject) => {
-            const sql = `SELECT * FROM \`${database}\`.\`teachable\` WHERE \`courseName\` = ? ORDER BY \`purchasedAt\` DESC`;
+            const sql = `SELECT * FROM \`${database}\`.\`teachable\` WHERE \`courseName\` = ?`;
             connection.query(sql, [ courseName ], (error, rows) => {
                 if (error) {
                     reject(error);
                 } else if (!Array.isArray(rows)) {
                     reject("An invalid reponse was returned from the SQL query.");
                 } else {
-                    resolve(rows.map(row => { return { id: row["id"], teachableID: row["teachableID"], purchasedAt: utils.coerceDate(row["purchasedAt"]), courseName: row["courseName"], userID: row["userID"], saleID: row["saleID"] }; }));
+                    resolve(rows.map(this.rowToTeachable));
                 }
             });
         });
     }
 
-    async selectUdemysByCourseName(connection: mysql.Connection, database: string, courseName: string): Promise<Udemy[]> {
+    rowToUdemy(row: any): Udemy {
+        return {
+            id: row["id"],
+            transactionID: row["transactionID"],
+            statementID: row["statementID"],
+            date: utils.coerceDate(row["date"]),
+            userName: row["userName"],
+            courseName: row["courseName"],
+            couponCode: row["couponCode"],
+            revenueChannel: row["revenueChannel"],
+            vendor: row["vendor"],
+            price: row["price"],
+            transactionCurrency: row["transactionCurrency"],
+            taxAmount: row["taxAmount"],
+            storeFee: row["storeFee"],
+            sharePrice: row["sharePrice"],
+            instructorShare: row["instructorShare"],
+            taxRate: row["taxRate"],
+            exchangeRate: row["exchangeRate"]
+        };
+    }
+
+    async getUdemyTransactions(connection: mysql.Connection, database: string, courseName: string): Promise<Udemy[]> {
         return new Promise<Udemy[]>((resolve, reject) => {
-            const sql = `SELECT * FROM \`${database}\`.\`Udemy\` WHERE \`courseName\` = ? ORDER BY \`date\` DESC`;
+            const sql = `SELECT * FROM \`${database}\`.\`Udemy\` WHERE \`courseName\` = ?`;
             connection.query(sql, [ courseName ], (error, rows) => {
                 if (error) {
                     reject(error);
                 } else if (!Array.isArray(rows)) {
                     reject("An invalid reponse was returned from the SQL query.");
                 } else {
-                    resolve(rows.map(row => { return { id: row["id"], transactionID: row["transactionID"], date: utils.coerceDate(row["date"]), userName: row["userName"], courseName: row["courseName"] }; }));
+                    resolve(rows.map(this.rowToUdemy));
                 }
             });
         });

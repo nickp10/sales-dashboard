@@ -1,4 +1,4 @@
-import { Course, ItemsPerDay } from "../interfaces";
+import { Course, TransactionsPerDay } from "../interfaces";
 import args from "./args";
 import * as express from "express";
 import * as mysql from "mysql";
@@ -28,8 +28,7 @@ export default class App {
         const app = express();
         app.use(express.static(__dirname));
         app.get("/getCourses", async (req, res) => await this.getCourses(req, res, sql, connection));
-        app.get("/getEnrollments", async (req, res) => await this.getEnrollments(req, res, sql, connection));
-        app.get("/getSales", async (req, res) => await this.getSales(req, res, sql, connection));
+        app.get("/getTransactions", async (req, res) => await this.getTransactions(req, res, sql, connection));
         app.get("/getTimeframeFilterNames", async (req, res) => await this.getTimeframeFilterNames(req, res, sql, connection));
         app.listen(args.dashboardPort, async () => await this.serverStarted());
     }
@@ -48,117 +47,84 @@ export default class App {
         res.status(200).send(courses);
     }
 
-    async getEnrollments(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
+    async getTransactions(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
         const courseId = utils.coerceInt(req.query.courseId);
         const timeframeFilterName = req.query.timeframeFilterName;
-        const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
-        const seenItems = new Set<string>();
+        const map = new Map<number, Map<number, Map<number, TransactionsPerDay>>>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getEnrollmentsForCourse(sql, connection, map, seenItems, course);
+            await this.getTransactionsForCourse(sql, connection, map, course);
         } else {
             const courses = await sql.selectCourses(connection, args.mysqlDatabase);
             for (const course of courses) {
-                await this.getEnrollmentsForCourse(sql, connection, map, seenItems, course);
+                await this.getTransactionsForCourse(sql, connection, map, course);
             }
         }
         const flatMap = this.flattenMap(map, timeframeFilterName);
         res.status(200).send(flatMap);
     }
 
-    async getEnrollmentsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, course: Course): Promise<void> {
+    async getTransactionsForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, TransactionsPerDay>>>, course: Course): Promise<void> {
         if (course.teachableName) {
-            const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
-            for (const teachable of teachables) {
-                this.updateItemsPerDayMap(map, seenItems, teachable.purchasedAt, `${teachable.userID || ''}`, course.courseName);
+            const transactions = await sql.getTeachableTransactions(connection, args.mysqlDatabase, course.teachableName);
+            for (const transaction of transactions) {
+                this.updateTransactionsMap(map, transaction.purchasedAt, transaction.earningsUSD, course.courseName);
             }
         }
         if (course.udemyName) {
-            const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
-            for (const udemy of udemys) {
-                this.updateItemsPerDayMap(map, seenItems, udemy.date, udemy.userName, course.courseName);
+            const transactions = await sql.getUdemyTransactions(connection, args.mysqlDatabase, course.udemyName);
+            for (const transaction of transactions) {
+                this.updateTransactionsMap(map, transaction.date, transaction.price, course.courseName);
             }
         }
     }
 
-    async getSales(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
-        const courseId = utils.coerceInt(req.query.courseId);
-        const timeframeFilterName = req.query.timeframeFilterName;
-        const map = new Map<number, Map<number, Map<number, ItemsPerDay>>>();
-        const seenItems = new Set<string>();
-        if (courseId) {
-            const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
-            await this.getSalesForCourse(sql, connection, map, seenItems, course);
-        } else {
-            const courses = await sql.selectCourses(connection, args.mysqlDatabase);
-            for (const course of courses) {
-                await this.getSalesForCourse(sql, connection, map, seenItems, course);
-            }
-        }
-        const flatMap = this.flattenMap(map, timeframeFilterName);
-        res.status(200).send(flatMap);
-    }
-
-    async getSalesForCourse(sql: MySQLService, connection: mysql.Connection, map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, course: Course): Promise<void> {
-        if (course.teachableName) {
-            const teachables = await sql.selectTeachablesByCourseName(connection, args.mysqlDatabase, course.teachableName);
-            for (const teachable of teachables) {
-                this.updateItemsPerDayMap(map, seenItems, teachable.purchasedAt, `${teachable.saleID || ''}`, course.courseName);
-            }
-        }
-        if (course.udemyName) {
-            const udemys = await sql.selectUdemysByCourseName(connection, args.mysqlDatabase, course.udemyName);
-            for (const udemy of udemys) {
-                this.updateItemsPerDayMap(map, seenItems, udemy.date, `${udemy.transactionID || ''}`, course.courseName);
-            }
-        }
-    }
-
-    flattenMap<T extends { date: Date }>(map: Map<number, Map<number, Map<number, T>>>, timeframeFilterName: string): T[] {
-        const returnArr: T[] = [];
+    flattenMap(map: Map<number, Map<number, Map<number, TransactionsPerDay>>>, timeframeFilterName: string): TransactionsPerDay[] {
+        const transactions: TransactionsPerDay[] = [];
         for (const [yearKey, yearValue] of map.entries()) {
             for (const [monthKey, monthValue] of yearValue.entries()) {
                 for (const [dayKey, dayValue] of monthValue.entries()) {
-                    returnArr.push(dayValue);
+                    transactions.push(dayValue);
                 }
             }
         }
         const timeframeFilter = Timeframe.getTimeframeFilter(timeframeFilterName);
-        return returnArr.filter(item => timeframeFilter(item.date)).sort((i1, i2) => i1.date.getTime() - i2.date.getTime());
+        return transactions.filter(t => timeframeFilter(t.date)).sort((i1, i2) => i1.date.getTime() - i2.date.getTime());
     }
 
-    updateItemsPerDayMap(map: Map<number, Map<number, Map<number, ItemsPerDay>>>, seenItems: Set<string>, date: Date, itemID: string, courseName: string): void {
-        if (!date || !itemID || seenItems.has(itemID)) {
+    updateTransactionsMap(map: Map<number, Map<number, Map<number, TransactionsPerDay>>>, date: Date, salePrice: number, courseName: string): void {
+        if (!date || !salePrice) {
             return;
         }
-        seenItems.add(itemID);
         let yearMap = map.get(date.getFullYear());
         if (!yearMap) {
-            yearMap = new Map<number, Map<number, ItemsPerDay>>();
+            yearMap = new Map<number, Map<number, TransactionsPerDay>>();
             map.set(date.getFullYear(), yearMap);
         }
         let monthMap = yearMap.get(date.getMonth());
         if (!monthMap) {
-            monthMap = new Map<number, ItemsPerDay>();
+            monthMap = new Map<number, TransactionsPerDay>();
             yearMap.set(date.getMonth(), monthMap);
         }
-        let itemsPerDay = monthMap.get(date.getDate());
-        if (!itemsPerDay) {
-            itemsPerDay = {
-                courseCounts: [],
+        let transactionsPerDay = monthMap.get(date.getDate());
+        if (!transactionsPerDay) {
+            transactionsPerDay = {
+                courseTransactions: [],
                 date: new Date(date.getFullYear(), date.getMonth(), date.getDate())
             };
-            monthMap.set(date.getDate(), itemsPerDay);
+            monthMap.set(date.getDate(), transactionsPerDay);
         }
-        const courseCounts = itemsPerDay.courseCounts;
-        let courseCount = courseCounts.find(c => c.courseName === courseName);
-        if (!courseCount) {
-            courseCount = {
+        const courseTransactionsArr = transactionsPerDay.courseTransactions;
+        let courseTransactions = courseTransactionsArr.find(c => c.courseName === courseName);
+        if (!courseTransactions) {
+            courseTransactions = {
                 courseName: courseName,
-                itemCount: 0
+                totalEnrollments: 0,
+                totalSales: 0
             };
-            courseCounts.push(courseCount);
+            courseTransactionsArr.push(courseTransactions);
         }
-        courseCount.itemCount++;
+        courseTransactions.totalEnrollments++;
+        courseTransactions.totalSales += salePrice;
     }
 }

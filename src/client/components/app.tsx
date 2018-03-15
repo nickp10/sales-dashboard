@@ -1,5 +1,5 @@
-import { Course, ItemsPerDay } from "../../interfaces";
-import { ChartData } from "chart.js";
+import { Course, CourseTransaction, TransactionsPerDay } from "../../interfaces";
+import { ChartData, ChartOptions } from "chart.js";
 import { Component } from "react";
 import { Line } from "react-chartjs-2";
 import * as moment from "moment";
@@ -14,8 +14,7 @@ export interface AppState {
     courses?: Course[];
     selectedCourse?: number;
     selectedTimeframeFilter?: string;
-    enrollments?: ItemsPerDay[];
-    sales?: ItemsPerDay[];
+    transactions?: TransactionsPerDay[];
     timeframeFilterNames?: string[];
 }
 
@@ -26,8 +25,7 @@ export default class App extends Component<AppProperties, AppState> {
             error: "",
             isLoaded: false,
             courses: [],
-            enrollments: [],
-            sales: [],
+            transactions: [],
             timeframeFilterNames: []
         };
     }
@@ -38,14 +36,12 @@ export default class App extends Component<AppProperties, AppState> {
             const courses = await res1.json();
             const res2 = await fetch("/getTimeframeFilterNames");
             const timeframeFilterNames = await res2.json();
-            const enrollments = await this.fetchEnrollments(this.state.selectedCourse, timeframeFilterNames[0]);
-            const sales = await this.fetchSales(this.state.selectedCourse, timeframeFilterNames[0]);
+            const transactions = await this.fetchTransactions(this.state.selectedCourse, timeframeFilterNames[0]);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: courses,
-                    enrollments: enrollments,
-                    sales: sales,
+                    transactions: transactions,
                     selectedCourse: previousState.selectedCourse,
                     selectedTimeframeFilter: timeframeFilterNames[0],
                     timeframeFilterNames: timeframeFilterNames
@@ -60,27 +56,20 @@ export default class App extends Component<AppProperties, AppState> {
         }
     }
 
-    async fetchEnrollments(selectedCourse: number, selectedTimeframeFilter: string): Promise<ItemsPerDay[]> {
-        const res = await fetch(`/getEnrollments?courseId=${selectedCourse || ''}&timeframeFilterName=${selectedTimeframeFilter || ''}`);
-        return await res.json();
-    }
-
-    async fetchSales(selectedCourse: number, selectedTimeframeFilter: string): Promise<ItemsPerDay[]> {
-        const res = await fetch(`/getSales?courseId=${selectedCourse || ''}&timeframeFilterName=${selectedTimeframeFilter || ''}`);
+    async fetchTransactions(selectedCourse: number, selectedTimeframeFilter: string): Promise<TransactionsPerDay[]> {
+        const res = await fetch(`/getTransactions?courseId=${selectedCourse || ''}&timeframeFilterName=${selectedTimeframeFilter || ''}`);
         return await res.json();
     }
 
     async courseChanged(event): Promise<void> {
         try {
             const selectedCourse = event.target.value;
-            const enrollments = await this.fetchEnrollments(selectedCourse, this.state.selectedTimeframeFilter);
-            const sales = await this.fetchSales(selectedCourse, this.state.selectedTimeframeFilter);
+            const transactions = await this.fetchTransactions(selectedCourse, this.state.selectedTimeframeFilter);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
-                    enrollments: enrollments,
-                    sales: sales,
+                    transactions: transactions,
                     selectedCourse: selectedCourse,
                     selectedTimeframeFilter: previousState.selectedTimeframeFilter,
                     timeframeFilterNames: previousState.timeframeFilterNames
@@ -98,14 +87,12 @@ export default class App extends Component<AppProperties, AppState> {
     async timeframeFilterChanged(event): Promise<void> {
         try {
             const selectedTimeframeFilter = event.target.value;
-            const enrollments = await this.fetchEnrollments(this.state.selectedCourse, selectedTimeframeFilter);
-            const sales = await this.fetchSales(this.state.selectedCourse, selectedTimeframeFilter);
+            const transactions = await this.fetchTransactions(this.state.selectedCourse, selectedTimeframeFilter);
             this.setState((previousState, props) => {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
-                    enrollments: enrollments,
-                    sales: sales,
+                    transactions: transactions,
                     selectedCourse: previousState.selectedCourse,
                     selectedTimeframeFilter: selectedTimeframeFilter,
                     timeframeFilterNames: previousState.timeframeFilterNames
@@ -120,13 +107,13 @@ export default class App extends Component<AppProperties, AppState> {
         }
     }
 
-    downloadableCSV(header: string, items: ItemsPerDay[]): string {
+    generateCSV(transactions: TransactionsPerDay[], header: string, valueFunc: (courseTransaction: CourseTransaction) => number): string {
         let content = `data:text/csv;charset=utf-8,`;
         content += `Course Name,Date,${header}\n`;
-        for (const item of items) {
-            const itemDate = moment(item.date).format("MM/DD/YYYY");
-            for (const course of item.courseCounts) {
-                content += `${course.courseName},${itemDate},${course.itemCount}\n`;
+        for (const transaction of transactions) {
+            const date = moment(transaction.date).format("MM/DD/YYYY");
+            for (const courseTransaction of transaction.courseTransactions) {
+                content += `${courseTransaction.courseName},${date},${valueFunc(courseTransaction)}\n`;
             }
         }
         return encodeURI(content);
@@ -140,71 +127,93 @@ export default class App extends Component<AppProperties, AppState> {
     }
 
     exportEnrollmentsToCSV(): void {
-        const { enrollments } = this.state;
-        const csv = this.downloadableCSV("Enrollments", enrollments);
+        const { transactions } = this.state;
+        const csv = this.generateCSV(transactions, "Enrollments", c => c.totalEnrollments);
         this.downloadCSV(csv, "enrollmentsPerDay.csv");
     }
 
     exportSalesToCSV(): void {
-        const { sales } = this.state;
-        const csv = this.downloadableCSV("Sales", sales);
+        const { transactions } = this.state;
+        const csv = this.generateCSV(transactions, "Sales", c => c.totalSales);
         this.downloadCSV(csv, "salesPerDay.csv");
     }
 
     render() {
-        const { error, isLoaded, courses, enrollments, sales, timeframeFilterNames } = this.state;
+        const { error, isLoaded, courses, transactions, timeframeFilterNames } = this.state;
         if (error) {
             return <div>Error: {error}</div>;
         } else if (!isLoaded) {
             return <div>Loading...</div>;
         } else {
-            const labels = Array.from(new Set(
-                enrollments.map(item => moment(item.date))
-                    .concat(sales.map(item => moment(item.date)))
-                    .sort((i1, i2) => i1.valueOf() - i2.valueOf())
-                    .map(i => i.format("MM/DD/YYYY"))
-            ));
-            const enrollmentsData: ItemsPerDay[] = [];
-            const salesData: ItemsPerDay[] = [];
-            for (const label of labels) {
-                // Find matching enrollment
-                const enrollment = enrollments.find(e => moment(e.date).format("MM/DD/YYYY") === label);
-                if (enrollment) {
-                    enrollmentsData.push(enrollment);
-                } else {
-                    enrollmentsData.push({
-                        date: moment(label).toDate(),
-                        courseCounts: []
-                    });
-                }
-
-                // Find matching sale
-                const sale = sales.find(s => moment(s.date).format("MM/DD/YYYY") === label);
-                if (sale) {
-                    salesData.push(sale);
-                } else {
-                    salesData.push({
-                        date: moment(label).toDate(),
-                        courseCounts: []
-                    });
-                }
-            }
             const chartData: ChartData = {
-                labels: labels,
+                labels: transactions.map(t => moment(t.date).format("MM/DD/YYYY")),
                 datasets: [
                     {
                         label: "Enrollments Per Day",
-                        data: enrollmentsData.map(item => item.courseCounts.map(course => course.itemCount).reduce((total, count) => total + count, 0)),
+                        data: transactions.map(t => t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0)),
                         backgroundColor: "rgba(255, 99, 132, 0.5)",
-                        borderColor: "rgb(255, 99, 132)"
+                        borderColor: "rgb(255, 99, 132)",
+                        yAxisID: "enrollmentsYAxis"
                     },
                     {
                         label: "Sales Per Day",
-                        data: salesData.map(item => item.courseCounts.map(course => course.itemCount).reduce((total, count) => total + count, 0)),
+                        data: transactions.map(t => t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0)),
                         backgroundColor: "rgba(54, 162, 235, 0.5)",
-                        borderColor: "rgb(54, 162, 235)"
+                        borderColor: "rgb(54, 162, 235)",
+                        yAxisID: "salesYAxis",
                     }
                 ]
+            };
+            const chartOptions: ChartOptions = {
+                hover: {
+                    animationDuration: 0
+                },
+                tooltips: {
+                    callbacks: {
+                        label: (tooltipItem, data) => {
+                            // Format currency
+                            if (tooltipItem.datasetIndex === 1) {
+                                const value = parseInt(tooltipItem.yLabel);
+                                if (!isNaN(value) && typeof value === "number") {
+                                    return "$" + value.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
+                                }
+                            }
+                            return tooltipItem.yLabel;
+                        }
+                    }
+                },
+                scales: {
+                    xAxes: [
+                        {
+                            stacked: true
+                        }
+                    ],
+                    yAxes: [
+                        {
+                            stacked: true,
+                            position: "left",
+                            id: "enrollmentsYAxis",
+                            scaleLabel: {
+                                display: true,
+                                labelString: "Total Enrollments"
+                            }
+                        },
+                        {
+                            stacked: true,
+                            position: "right",
+                            id: "salesYAxis",
+                            scaleLabel: {
+                                display: true,
+                                labelString: "Total Sales"
+                            },
+                            ticks: {
+                                callback: (value, index, values) => {
+                                    return "$" + value.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
+                                }
+                            }
+                        }
+                    ]
+                }
             };
             const floatLeftStyle = {
                 float: "left"
@@ -236,7 +245,7 @@ export default class App extends Component<AppProperties, AppState> {
                         </div>
                     </div>
                     <div style={canvasStyle}>
-                        <Line data={chartData} />
+                        <Line data={chartData} options={chartOptions} />
                     </div>
                     <div style={centerStyle}>
                         <button onClick={this.exportEnrollmentsToCSV.bind(this)}>Export Enrollments Per Day to CSV</button>&nbsp;&nbsp;&nbsp;

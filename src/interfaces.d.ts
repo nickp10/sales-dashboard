@@ -42,12 +42,13 @@ export interface Udemy {
     exchangeRate?: number;
 }
 
-export interface CourseCount {
+export interface CourseTransaction {
     courseName: string;
-    itemCount: number;
+    totalEnrollments: number;
+    totalSales: number;
 }
 
-export interface ItemsPerDay {
-    courseCounts: CourseCount[];
+export interface TransactionsPerDay {
+    courseTransactions: CourseTransaction[];
     date: Date;
 }
