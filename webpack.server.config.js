@@ -42,5 +42,11 @@ module.exports = {
     },
     resolve: {
         extensions: [".js", ".jsx", ".json", ".ts", ".tsx"]
-    }
+    },
+    plugins: [
+        new webpack.BannerPlugin({
+            banner: "#! /usr/bin/env node",
+            raw: true
+        })
+    ]
 };
