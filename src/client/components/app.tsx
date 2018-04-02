@@ -174,6 +174,14 @@ export default class App extends Component<AppProperties, AppState> {
         this.downloadCSV(csv, "salesPerDay.csv");
     }
 
+    formatCurrency(value: any): string {
+        const valueNumber = parseInt(value);
+        if (!isNaN(valueNumber) && typeof valueNumber === "number") {
+            return "$" + valueNumber.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
+        }
+        return value;
+    }
+
     render() {
         const { error, isLoaded, courses, platforms, timeframeFilterNames, transactions } = this.state;
         if (error) {
@@ -181,19 +189,23 @@ export default class App extends Component<AppProperties, AppState> {
         } else if (!isLoaded) {
             return <div>Loading...</div>;
         } else {
+            const enrollmentsData = transactions.map(t => t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0));
+            const salesData = transactions.map(t => t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0));
+            const totalEnrollments = enrollmentsData.reduce((t, v) => t + v, 0);
+            const totalSales = salesData.reduce((t, v) => t + v, 0);
             const chartData: ChartData = {
                 labels: transactions.map(t => moment(t.date).format("MM/DD/YYYY")),
                 datasets: [
                     {
                         label: "Enrollments Per Day",
-                        data: transactions.map(t => t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0)),
+                        data: enrollmentsData,
                         backgroundColor: "rgba(255, 99, 132, 0.5)",
                         borderColor: "rgb(255, 99, 132)",
                         yAxisID: "enrollmentsYAxis"
                     },
                     {
                         label: "Sales Per Day",
-                        data: transactions.map(t => t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0)),
+                        data: salesData,
                         backgroundColor: "rgba(54, 162, 235, 0.5)",
                         borderColor: "rgb(54, 162, 235)",
                         yAxisID: "salesYAxis",
@@ -209,10 +221,7 @@ export default class App extends Component<AppProperties, AppState> {
                         label: (tooltipItem, data) => {
                             // Format currency
                             if (tooltipItem.datasetIndex === 1) {
-                                const value = parseInt(tooltipItem.yLabel);
-                                if (!isNaN(value) && typeof value === "number") {
-                                    return "$" + value.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
-                                }
+                                return this.formatCurrency(tooltipItem.yLabel);
                             }
                             return tooltipItem.yLabel;
                         }
@@ -244,7 +253,7 @@ export default class App extends Component<AppProperties, AppState> {
                             },
                             ticks: {
                                 callback: (value, index, values) => {
-                                    return "$" + value.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
+                                    return this.formatCurrency(value);
                                 }
                             }
                         }
@@ -252,9 +261,14 @@ export default class App extends Component<AppProperties, AppState> {
                 }
             };
             const canvasStyle = {
-                marginLeft: "auto",
-                marginRight: "auto",
+                float: "left",
+                marginLeft: "3%",
+                marginRight: "3%",
                 width: "80%"
+            };
+            const totalsStyle = {
+                float: "left",
+                width: "11%"
             };
             const centerStyle = {
                 textAlign: "center"
@@ -262,6 +276,10 @@ export default class App extends Component<AppProperties, AppState> {
             const selectStyle = {
                 marginLeft: "20px",
                 marginRight: "20px"
+            };
+            const exportStyle = {
+                clear: "both",
+                textAlign: "center"
             };
             return(
                 <div>
@@ -280,7 +298,18 @@ export default class App extends Component<AppProperties, AppState> {
                     <div style={canvasStyle}>
                         <Line data={chartData} options={chartOptions} />
                     </div>
-                    <div style={centerStyle}>
+                    <div style={totalsStyle}>
+                        <div>
+                            <strong>Total&nbsp;Sales:</strong><br />
+                            {this.formatCurrency(totalSales)}
+                        </div>
+                        <br />
+                        <div>
+                            <strong>Total&nbsp;Enrollments:</strong><br />
+                            {totalEnrollments}
+                        </div>
+                    </div>
+                    <div style={exportStyle}>
                         <button onClick={this.exportEnrollmentsToCSV.bind(this)}>Export Enrollments Per Day to CSV</button>&nbsp;&nbsp;&nbsp;
                         <button onClick={this.exportSalesToCSV.bind(this)}>Export Sales Per Day to CSV</button>
                     </div>
