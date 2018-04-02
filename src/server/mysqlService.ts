@@ -52,7 +52,7 @@ export default class MySQLService {
 
     async selectCourses(connection: mysql.Connection, database: string): Promise<Course[]> {
         return new Promise<Course[]>((resolve, reject) => {
-            const sql = `SELECT * FROM \`${database}\`.\`courses\``;
+            const sql = `SELECT * FROM \`${database}\`.\`courses\` ORDER BY \`courseName\` ASC`;
             connection.query(sql, (error, rows) => {
                 if (error) {
                     reject(error);
