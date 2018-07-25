@@ -1,5 +1,5 @@
 import { Course, CourseTransaction, TransactionsPerDay } from "../../interfaces";
-import { ChartData, ChartOptions } from "chart.js";
+import { ChartData, ChartOptions, TimeDisplayFormat, TimeUnit } from "chart.js";
 import { Component } from "react";
 import { Line } from "react-chartjs-2";
 import * as moment from "moment";
@@ -12,8 +12,10 @@ export interface AppState {
     error?: string;
     isLoaded?: boolean;
     courses?: Course[];
+    frequencyNames?: { key: TimeUnit, label: string }[];
     platforms?: string[];
     selectedCourse?: number;
+    selectedFrequency?: TimeUnit;
     selectedPlatform?: string;
     selectedTimeframeFilter?: string;
     transactions?: TransactionsPerDay[];
@@ -27,7 +29,21 @@ export default class App extends Component<AppProperties, AppState> {
             error: "",
             isLoaded: false,
             courses: [],
+            frequencyNames: [{
+                key: "day",
+                label: "Daily"
+            }, {
+                key: "week",
+                label: "Weekly"
+            }, {
+                key: "month",
+                label: "Monthly"
+            }, {
+                key: "year",
+                label: "Yearly"
+            }],
             platforms: [],
+            selectedFrequency: "day",
             transactions: [],
             timeframeFilterNames: []
         };
@@ -46,8 +62,10 @@ export default class App extends Component<AppProperties, AppState> {
                 return {
                     isLoaded: true,
                     courses: courses,
+                    frequencyNames: previousState.frequencyNames,
                     platforms: platforms,
                     selectedCourse: previousState.selectedCourse,
+                    selectedFrequency: previousState.selectedFrequency,
                     selectedPlatform: platforms[0],
                     selectedTimeframeFilter: timeframeFilterNames[0],
                     timeframeFilterNames: timeframeFilterNames,
@@ -76,8 +94,10 @@ export default class App extends Component<AppProperties, AppState> {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
+                    frequencyNames: previousState.frequencyNames,
                     platforms: previousState.platforms,
                     selectedCourse: selectedCourse,
+                    selectedFrequency: previousState.selectedFrequency,
                     selectedPlatform: previousState.selectedPlatform,
                     selectedTimeframeFilter: previousState.selectedTimeframeFilter,
                     timeframeFilterNames: previousState.timeframeFilterNames,
@@ -101,12 +121,40 @@ export default class App extends Component<AppProperties, AppState> {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
+                    frequencyNames: previousState.frequencyNames,
                     platforms: previousState.platforms,
                     selectedCourse: previousState.selectedCourse,
+                    selectedFrequency: previousState.selectedFrequency,
                     selectedPlatform: selectedPlatform,
                     selectedTimeframeFilter: previousState.selectedTimeframeFilter,
                     timeframeFilterNames: previousState.timeframeFilterNames,
                     transactions: transactions
+                };
+            });
+        } catch (error) {
+            this.setState((previousState, props) => {
+                return {
+                    error: error.message
+                };
+            });
+        }
+    }
+
+    frequencyChanged(event): void {
+        try {
+            const selectedFrequency = event.target.value;
+            this.setState((previousState, props) => {
+                return {
+                    isLoaded: true,
+                    courses: previousState.courses,
+                    frequencyNames: previousState.frequencyNames,
+                    platforms: previousState.platforms,
+                    selectedCourse: previousState.selectedCourse,
+                    selectedFrequency: selectedFrequency,
+                    selectedPlatform: previousState.selectedPlatform,
+                    selectedTimeframeFilter: previousState.selectedTimeframeFilter,
+                    timeframeFilterNames: previousState.timeframeFilterNames,
+                    transactions: previousState.transactions
                 };
             });
         } catch (error) {
@@ -126,8 +174,10 @@ export default class App extends Component<AppProperties, AppState> {
                 return {
                     isLoaded: true,
                     courses: previousState.courses,
+                    frequencyNames: previousState.frequencyNames,
                     platforms: previousState.platforms,
                     selectedCourse: previousState.selectedCourse,
+                    selectedFrequency: previousState.selectedFrequency,
                     selectedPlatform: previousState.selectedPlatform,
                     selectedTimeframeFilter: selectedTimeframeFilter,
                     timeframeFilterNames: previousState.timeframeFilterNames,
@@ -182,35 +232,96 @@ export default class App extends Component<AppProperties, AppState> {
         return value;
     }
 
+    groupDataByFrequency(data: { t: Date, y: number }[], frequency: TimeUnit): { t: Date, y: number }[] {
+        if (frequency === "day") {
+            return data;
+        } else if (frequency === "week") {
+            const tempData = new Map<string, { t: Date, y: number }>();
+            for (const point of data) {
+                const date = moment(point.t);
+                const key = date.year() + "-" + date.week();
+                let tempPoint = tempData.get(key);
+                if (tempPoint) {
+                    tempPoint.y += point.y;
+                } else {
+                    tempData.set(key, point);
+                }
+            }
+            return Array.from(tempData.values());
+        } else if (frequency === "month") {
+            const tempData = new Map<string, { t: Date, y: number }>();
+            for (const point of data) {
+                const date = moment(point.t);
+                const key = date.format("MMYYYY");
+                let tempPoint = tempData.get(key);
+                if (tempPoint) {
+                    tempPoint.y += point.y;
+                } else {
+                    tempData.set(key, point);
+                }
+            }
+            return Array.from(tempData.values());
+        } else if (frequency === "year") {
+            const tempData = new Map<string, { t: Date, y: number }>();
+            for (const point of data) {
+                const date = moment(point.t);
+                const key = date.format("YYYY");
+                let tempPoint = tempData.get(key);
+                if (tempPoint) {
+                    tempPoint.y += point.y;
+                } else {
+                    tempData.set(key, point);
+                }
+            }
+            return Array.from(tempData.values());
+        }
+        return data;
+    }
+
     render() {
-        const { error, isLoaded, courses, platforms, timeframeFilterNames, transactions } = this.state;
+        const { error, isLoaded, courses, frequencyNames, platforms, selectedFrequency, timeframeFilterNames, transactions } = this.state;
         if (error) {
             return <div>Error: {error}</div>;
         } else if (!isLoaded) {
             return <div>Loading...</div>;
         } else {
-            const enrollmentsData = transactions.map(t => t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0));
-            const salesData = transactions.map(t => t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0));
-            const totalEnrollments = enrollmentsData.reduce((t, v) => t + v, 0);
-            const totalSales = salesData.reduce((t, v) => t + v, 0);
+            const enrollmentsData = this.groupDataByFrequency(transactions.map(t => {
+                return {
+                    y: t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0),
+                    t: t.date
+                };
+            }), selectedFrequency);
+            const salesData = this.groupDataByFrequency(transactions.map(t => {
+                return {
+                    y: t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0),
+                    t: t.date
+                };
+            }), selectedFrequency);
+            const totalEnrollments = enrollmentsData.reduce<number>((t, v) => t + v.y, 0);
+            const totalSales = salesData.reduce<number>((t, v) => t + v.y, 0);
             const chartData: ChartData = {
-                labels: transactions.map(t => moment(t.date).format("MM/DD/YYYY")),
                 datasets: [
                     {
-                        label: "Enrollments Per Day",
+                        label: "Enrollments",
                         data: enrollmentsData,
                         backgroundColor: "rgba(255, 99, 132, 0.5)",
                         borderColor: "rgb(255, 99, 132)",
                         yAxisID: "enrollmentsYAxis"
                     },
                     {
-                        label: "Sales Per Day",
+                        label: "Sales",
                         data: salesData,
                         backgroundColor: "rgba(54, 162, 235, 0.5)",
                         borderColor: "rgb(54, 162, 235)",
                         yAxisID: "salesYAxis",
                     }
                 ]
+            };
+            const chartDateFormats: TimeDisplayFormat = {
+                day: "MM/DD/YYYY",
+                week: "ll",
+                month: "MMM YYYY",
+                year: "YYYY"
             };
             const chartOptions: ChartOptions = {
                 hover: {
@@ -230,7 +341,16 @@ export default class App extends Component<AppProperties, AppState> {
                 scales: {
                     xAxes: [
                         {
-                            stacked: true
+                            type: "time",
+                            distribution: "series",
+                            ticks: {
+                                source: "data"
+                            },
+                            time: {
+                                unit: selectedFrequency,
+                                displayFormats: chartDateFormats,
+                                tooltipFormat: chartDateFormats[selectedFrequency]
+                            }
                         }
                     ],
                     yAxes: [
@@ -260,24 +380,24 @@ export default class App extends Component<AppProperties, AppState> {
                     ]
                 }
             };
-            const canvasStyle = {
+            const canvasStyle: React.CSSProperties = {
                 float: "left",
                 marginLeft: "3%",
                 marginRight: "3%",
                 width: "80%"
             };
-            const totalsStyle = {
+            const totalsStyle: React.CSSProperties = {
                 float: "left",
                 width: "11%"
             };
-            const centerStyle = {
+            const centerStyle: React.CSSProperties = {
                 textAlign: "center"
             };
-            const selectStyle = {
+            const selectStyle: React.CSSProperties = {
                 marginLeft: "20px",
                 marginRight: "20px"
             };
-            const exportStyle = {
+            const exportStyle: React.CSSProperties = {
                 clear: "both",
                 textAlign: "center"
             };
@@ -293,6 +413,9 @@ export default class App extends Component<AppProperties, AppState> {
                         </select>
                         <select id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
                             {timeframeFilterNames.map(timeframeFilterName => <option value={timeframeFilterName}>{timeframeFilterName}</option>)}
+                        </select>
+                        <select id="frequencyNames" onChange={this.frequencyChanged.bind(this)} style={selectStyle}>
+                            {frequencyNames.map(frequencyName => <option value={frequencyName.key}>{frequencyName.label}</option>)}
                         </select>
                     </div>
                     <div style={canvasStyle}>
