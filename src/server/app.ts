@@ -4,7 +4,7 @@ import * as express from "express";
 import * as mysql from "mysql";
 import MySQLService from "./mysqlService";
 import * as process from "process";
-import Timeframe from "./timeframe";
+import Timeframe from "../timeframe";
 import utils from "../utils";
 
 export default class App {
@@ -74,7 +74,7 @@ export default class App {
         if ((!platform || platform === "All Platforms" || platform === "Teachable") && course.teachableName) {
             const transactions = await sql.getTeachableTransactions(connection, args.mysqlDatabase, course.teachableName);
             for (const transaction of transactions) {
-                this.updateTransactionsMap(map, transaction.purchasedAt, transaction.finalPrice / 100, course.courseName);
+                this.updateTransactionsMap(map, transaction.purchasedAt, transaction.earningsUSD / 100, course.courseName);
             }
         }
         if ((!platform || platform === "All Platforms" || platform === "Udemy") && course.udemyName) {

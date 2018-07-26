@@ -4,6 +4,7 @@ import { Component } from "react";
 import { Line } from "react-chartjs-2";
 import * as moment from "moment";
 import * as React from "react";
+import Timeframe from "../../timeframe";
 
 export interface AppProperties {
 }
@@ -232,54 +233,60 @@ export default class App extends Component<AppProperties, AppState> {
         return value;
     }
 
-    groupDataByFrequency(data: { t: Date, y: number }[], frequency: TimeUnit): { t: Date, y: number }[] {
-        if (frequency === "day") {
-            return data;
-        } else if (frequency === "week") {
-            const tempData = new Map<string, { t: Date, y: number }>();
-            for (const point of data) {
-                const date = moment(point.t);
-                const key = date.year() + "-" + date.week();
-                let tempPoint = tempData.get(key);
-                if (tempPoint) {
-                    tempPoint.y += point.y;
-                } else {
-                    tempData.set(key, point);
-                }
+    createEmptyMap(timeframeFilter: string, frequency: TimeUnit): Map<string, { t: Date, y: number }> {
+        const map = new Map<string, { t: Date, y: number }>();
+        const earliest = Timeframe.getTimeframeEarliestDate(timeframeFilter);
+        const latest = Timeframe.getTimeframeLatestDate(timeframeFilter);
+        const current = moment(earliest);
+        while (current.toDate().getTime() < latest.getTime()) {
+            const key = this.formatKey(current, frequency);
+            map.set(key, { t: current.toDate(), y: 0 });
+            if (frequency === "day") {
+                current.add(1, "days");
+            } else if (frequency === "week") {
+                current.add(1, "weeks");
+            } else if (frequency === "month") {
+                current.add(1, "months");
+            } else if (frequency === "year") {
+                current.add(1, "years");
+            } else {
+                current.add(1, "days");
             }
-            return Array.from(tempData.values());
-        } else if (frequency === "month") {
-            const tempData = new Map<string, { t: Date, y: number }>();
-            for (const point of data) {
-                const date = moment(point.t);
-                const key = date.format("MMYYYY");
-                let tempPoint = tempData.get(key);
-                if (tempPoint) {
-                    tempPoint.y += point.y;
-                } else {
-                    tempData.set(key, point);
-                }
-            }
-            return Array.from(tempData.values());
-        } else if (frequency === "year") {
-            const tempData = new Map<string, { t: Date, y: number }>();
-            for (const point of data) {
-                const date = moment(point.t);
-                const key = date.format("YYYY");
-                let tempPoint = tempData.get(key);
-                if (tempPoint) {
-                    tempPoint.y += point.y;
-                } else {
-                    tempData.set(key, point);
-                }
-            }
-            return Array.from(tempData.values());
         }
-        return data;
+        return map;
+    }
+
+    formatKey(date: moment.Moment, frequency: TimeUnit): string {
+        if (frequency === "day") {
+            return date.format("MM/DD/YYYY");
+        } else if (frequency === "week") {
+            const tempDate = date.startOf("week");
+            return tempDate.year() + "-" + tempDate.week();
+        } else if (frequency === "month") {
+            return date.format("MM/YYYY");
+        } else if (frequency === "year") {
+            return date.format("YYYY");
+        }
+        return date.format("MM/DD/YYYY");
+    }
+
+    groupDataByFrequency(data: { t: Date, y: number }[], timeframeFilter: string, frequency: TimeUnit): { t: Date, y: number }[] {
+        const tempData = this.createEmptyMap(timeframeFilter, frequency);
+        for (const point of data) {
+            const date = moment(point.t);
+            const key = this.formatKey(date, frequency);
+            let tempPoint = tempData.get(key);
+            if (tempPoint) {
+                tempPoint.y += point.y;
+            } else {
+                tempData.set(key, point);
+            }
+        }
+        return Array.from(tempData.values());
     }
 
     render() {
-        const { error, isLoaded, courses, frequencyNames, platforms, selectedFrequency, timeframeFilterNames, transactions } = this.state;
+        const { error, isLoaded, courses, frequencyNames, platforms, selectedFrequency, selectedTimeframeFilter, timeframeFilterNames, transactions } = this.state;
         if (error) {
             return <div>Error: {error}</div>;
         } else if (!isLoaded) {
@@ -290,13 +297,13 @@ export default class App extends Component<AppProperties, AppState> {
                     y: t.courseTransactions.map(ct => ct.totalEnrollments).reduce((t, v) => t + v, 0),
                     t: t.date
                 };
-            }), selectedFrequency);
+            }), selectedTimeframeFilter, selectedFrequency);
             const salesData = this.groupDataByFrequency(transactions.map(t => {
                 return {
                     y: t.courseTransactions.map(ct => ct.totalSales).reduce((t, v) => t + v, 0),
                     t: t.date
                 };
-            }), selectedFrequency);
+            }), selectedTimeframeFilter, selectedFrequency);
             const totalEnrollments = enrollmentsData.reduce<number>((t, v) => t + v.y, 0);
             const totalSales = salesData.reduce<number>((t, v) => t + v.y, 0);
             const chartData: ChartData = {
@@ -342,7 +349,7 @@ export default class App extends Component<AppProperties, AppState> {
                     xAxes: [
                         {
                             type: "time",
-                            distribution: "series",
+                            distribution: "linear",
                             ticks: {
                                 source: "data"
                             },
@@ -361,6 +368,9 @@ export default class App extends Component<AppProperties, AppState> {
                             scaleLabel: {
                                 display: true,
                                 labelString: "Total Enrollments"
+                            },
+                            ticks: {
+                                min: 0
                             }
                         },
                         {
@@ -372,6 +382,7 @@ export default class App extends Component<AppProperties, AppState> {
                                 labelString: "Total Sales"
                             },
                             ticks: {
+                                min: 0,
                                 callback: (value, index, values) => {
                                     return this.formatCurrency(value);
                                 }
