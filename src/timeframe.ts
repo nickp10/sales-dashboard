@@ -126,8 +126,8 @@ export class Timeframe {
     }
 
     private getLast3MonthsEarliest(): Date {
-        const earliest = moment();
-        earliest.subtract(3, "months");
+        const earliest = moment().startOf("month");
+        earliest.subtract(2, "months");
         earliest.hours(0);
         earliest.minutes(0);
         earliest.seconds(0);
@@ -136,8 +136,8 @@ export class Timeframe {
     }
 
     private getLast6MonthsEarliest(): Date {
-        const earliest = moment();
-        earliest.subtract(6, "months");
+        const earliest = moment().startOf("month");
+        earliest.subtract(5, "months");
         earliest.hours(0);
         earliest.minutes(0);
         earliest.seconds(0);
@@ -146,8 +146,8 @@ export class Timeframe {
     }
 
     private getLast12MonthsEarliest(): Date {
-        const earliest = moment();
-        earliest.subtract(12, "months");
+        const earliest = moment().startOf("month");
+        earliest.subtract(11, "months");
         earliest.hours(0);
         earliest.minutes(0);
         earliest.seconds(0);

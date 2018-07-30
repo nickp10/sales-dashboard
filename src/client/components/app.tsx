@@ -40,6 +40,9 @@ export default class App extends Component<AppProperties, AppState> {
                 key: "month",
                 label: "Monthly"
             }, {
+                key: "quarter",
+                label: "Quarterly"
+            }, {
                 key: "year",
                 label: "Yearly"
             }],
@@ -237,21 +240,11 @@ export default class App extends Component<AppProperties, AppState> {
         const map = new Map<string, { t: Date, y: number }>();
         const earliest = Timeframe.getTimeframeEarliestDate(timeframeFilter);
         const latest = Timeframe.getTimeframeLatestDate(timeframeFilter);
-        const current = moment(earliest);
+        const current = moment(earliest).startOf(frequency);
         while (current.toDate().getTime() < latest.getTime()) {
             const key = this.formatKey(current, frequency);
             map.set(key, { t: current.toDate(), y: 0 });
-            if (frequency === "day") {
-                current.add(1, "days");
-            } else if (frequency === "week") {
-                current.add(1, "weeks");
-            } else if (frequency === "month") {
-                current.add(1, "months");
-            } else if (frequency === "year") {
-                current.add(1, "years");
-            } else {
-                current.add(1, "days");
-            }
+            current.add(1, frequency);
         }
         return map;
     }
@@ -260,10 +253,11 @@ export default class App extends Component<AppProperties, AppState> {
         if (frequency === "day") {
             return date.format("MM/DD/YYYY");
         } else if (frequency === "week") {
-            const tempDate = date.startOf("week");
-            return tempDate.year() + "-" + tempDate.week();
+            return date.format("YYYY-ww");
         } else if (frequency === "month") {
             return date.format("MM/YYYY");
+        } else if (frequency === "quarter") {
+            return date.format("[Q]Q YYYY");
         } else if (frequency === "year") {
             return date.format("YYYY");
         }
@@ -275,11 +269,9 @@ export default class App extends Component<AppProperties, AppState> {
         for (const point of data) {
             const date = moment(point.t);
             const key = this.formatKey(date, frequency);
-            let tempPoint = tempData.get(key);
+            const tempPoint = tempData.get(key);
             if (tempPoint) {
                 tempPoint.y += point.y;
-            } else {
-                tempData.set(key, point);
             }
         }
         return Array.from(tempData.values());
@@ -328,6 +320,7 @@ export default class App extends Component<AppProperties, AppState> {
                 day: "MM/DD/YYYY",
                 week: "ll",
                 month: "MMM YYYY",
+                quarter: "[Q]Q YYYY",
                 year: "YYYY"
             };
             const chartOptions: ChartOptions = {

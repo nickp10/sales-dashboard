@@ -80,7 +80,7 @@ export default class App {
         if ((!platform || platform === "All Platforms" || platform === "Udemy") && course.udemyName) {
             const transactions = await sql.getUdemyTransactions(connection, args.mysqlDatabase, course.udemyName);
             for (const transaction of transactions) {
-                this.updateTransactionsMap(map, transaction.date, transaction.price, course.courseName);
+                this.updateTransactionsMap(map, transaction.date, transaction.instructorShare, course.courseName);
             }
         }
     }
