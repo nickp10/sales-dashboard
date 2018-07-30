@@ -278,9 +278,9 @@ export default class App extends Component<AppProperties, AppState> {
         return Array.from(tempData.values());
     }
 
-    createAverageData(totalSales: number, totalEnrollments: number, timeframeFilter: string, frequency: TimeUnit): { t: Date, y: number }[] {
+    createAverageData(totalSales: number, timeframeFilter: string, frequency: TimeUnit): { t: Date, y: number }[] {
         const tempData = this.createEmptyMap(timeframeFilter, frequency);
-        const average = totalSales / totalEnrollments;
+        const average = totalSales / tempData.size;
         for (const value of tempData.values()) {
             value.y = average;
         }
@@ -308,7 +308,7 @@ export default class App extends Component<AppProperties, AppState> {
             }), selectedTimeframeFilter, selectedFrequency);
             const totalEnrollments = enrollmentsData.reduce<number>((t, v) => t + v.y, 0);
             const totalSales = salesData.reduce<number>((t, v) => t + v.y, 0);
-            const averageData = this.createAverageData(totalSales, totalEnrollments, selectedTimeframeFilter, selectedFrequency);
+            const averageData = this.createAverageData(totalSales, selectedTimeframeFilter, selectedFrequency);
             const chartData: ChartData = {
                 datasets: [
                     {
