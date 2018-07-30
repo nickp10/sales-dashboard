@@ -1,4 +1,4 @@
-import { Button } from "react-bootstrap";
+import { Button, Form, FormControl } from "react-bootstrap";
 import { Course, CourseTransaction, TransactionsPerDay } from "../../interfaces";
 import { ChartData, ChartOptions, TimeDisplayFormat, TimeUnit } from "chart.js";
 import { Component } from "react";
@@ -414,9 +414,6 @@ export default class App extends Component<AppProperties, AppState> {
                 float: "left",
                 width: "11%"
             };
-            const centerStyle: React.CSSProperties = {
-                textAlign: "center"
-            };
             const selectStyle: React.CSSProperties = {
                 marginLeft: "20px",
                 marginRight: "20px"
@@ -427,21 +424,21 @@ export default class App extends Component<AppProperties, AppState> {
             };
             return(
                 <div>
-                    <div style={centerStyle}>
-                        <select id="courses" onChange={this.courseChanged.bind(this)} style={selectStyle}>
+                    <Form inline style={{justifyContent: "center"}}>
+                        <FormControl componentClass="select" id="courses" onChange={this.courseChanged.bind(this)} style={selectStyle}>
                             <option>All Courses</option>
                             {courses.map(course => <option value={course.id}>{course.courseName}</option>)}
-                        </select>
-                        <select id="platforms" onChange={this.platformChanged.bind(this)} style={selectStyle}>
+                        </FormControl>
+                        <FormControl componentClass="select" id="platforms" onChange={this.platformChanged.bind(this)} style={selectStyle}>
                             {platforms.map(platform => <option value={platform}>{platform}</option>)}
-                        </select>
-                        <select id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
+                        </FormControl>
+                        <FormControl componentClass="select" id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
                             {timeframeFilterNames.map(timeframeFilterName => <option value={timeframeFilterName}>{timeframeFilterName}</option>)}
-                        </select>
-                        <select id="frequencyNames" onChange={this.frequencyChanged.bind(this)} style={selectStyle}>
+                        </FormControl>
+                        <FormControl componentClass="select" id="frequencyNames" onChange={this.frequencyChanged.bind(this)} style={selectStyle}>
                             {frequencyNames.map(frequencyName => <option value={frequencyName.key}>{frequencyName.label}</option>)}
-                        </select>
-                    </div>
+                        </FormControl>
+                    </Form>
                     <div style={canvasStyle}>
                         <Line data={chartData} options={chartOptions} />
                     </div>
