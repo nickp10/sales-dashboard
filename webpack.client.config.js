@@ -22,12 +22,30 @@ module.exports = {
                 }]
             },
             {
-                test: /\.(js|jsx)?$/,
+                test: /\.(js|jsx)$/,
                 use: [{
                     loader: "babel-loader",
                     options: {
                         cacheDirectory: true,
-                        presets: ["react", "env"]
+                        presets: ["react", "env"],
+                        plugins: ["transform-class-properties"]
+                    }
+                }]
+            },
+            {
+                test: /\.(css)$/,
+                use: [{
+                    loader: "style-loader"
+                }, {
+                    loader: "css-loader"
+                }]
+            },
+            {
+                test: /\.(png|jpg|gif|svg|eot|ttf|woff|woff2)$/,
+                use: [{
+                    loader: "url-loader",
+                    options: {
+                        limit: 10000
                     }
                 }]
             }

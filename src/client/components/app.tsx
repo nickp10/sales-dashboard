@@ -1,3 +1,4 @@
+import { Button } from "react-bootstrap";
 import { Course, CourseTransaction, TransactionsPerDay } from "../../interfaces";
 import { ChartData, ChartOptions, TimeDisplayFormat, TimeUnit } from "chart.js";
 import { Component } from "react";
@@ -456,8 +457,8 @@ export default class App extends Component<AppProperties, AppState> {
                         </div>
                     </div>
                     <div style={exportStyle}>
-                        <button onClick={this.exportEnrollmentsToCSV.bind(this)}>Export Enrollments Per Day to CSV</button>&nbsp;&nbsp;&nbsp;
-                        <button onClick={this.exportSalesToCSV.bind(this)}>Export Sales Per Day to CSV</button>
+                        <Button onClick={this.exportEnrollmentsToCSV.bind(this)} bsStyle="danger">Export Enrollments Per Day to CSV</Button>&nbsp;&nbsp;&nbsp;
+                        <Button onClick={this.exportSalesToCSV.bind(this)} bsStyle="primary">Export Sales Per Day to CSV</Button>
                     </div>
                 </div>
             );
