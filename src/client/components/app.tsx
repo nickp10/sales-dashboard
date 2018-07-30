@@ -229,7 +229,7 @@ export default class App extends Component<AppProperties, AppState> {
     }
 
     formatCurrency(value: any): string {
-        const valueNumber = parseInt(value);
+        const valueNumber = parseFloat(value);
         if (!isNaN(valueNumber) && typeof valueNumber === "number") {
             return "$" + valueNumber.toFixed(2).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,");
         }
@@ -277,6 +277,15 @@ export default class App extends Component<AppProperties, AppState> {
         return Array.from(tempData.values());
     }
 
+    createAverageData(totalSales: number, totalEnrollments: number, timeframeFilter: string, frequency: TimeUnit): { t: Date, y: number }[] {
+        const tempData = this.createEmptyMap(timeframeFilter, frequency);
+        const average = totalSales / totalEnrollments;
+        for (const value of tempData.values()) {
+            value.y = average;
+        }
+        return Array.from(tempData.values());
+    }
+
     render() {
         const { error, isLoaded, courses, frequencyNames, platforms, selectedFrequency, selectedTimeframeFilter, timeframeFilterNames, transactions } = this.state;
         if (error) {
@@ -298,6 +307,7 @@ export default class App extends Component<AppProperties, AppState> {
             }), selectedTimeframeFilter, selectedFrequency);
             const totalEnrollments = enrollmentsData.reduce<number>((t, v) => t + v.y, 0);
             const totalSales = salesData.reduce<number>((t, v) => t + v.y, 0);
+            const averageData = this.createAverageData(totalSales, totalEnrollments, selectedTimeframeFilter, selectedFrequency);
             const chartData: ChartData = {
                 datasets: [
                     {
@@ -313,6 +323,13 @@ export default class App extends Component<AppProperties, AppState> {
                         backgroundColor: "rgba(54, 162, 235, 0.5)",
                         borderColor: "rgb(54, 162, 235)",
                         yAxisID: "salesYAxis",
+                    },
+                    {
+                        label: "Average Sales",
+                        data: averageData,
+                        backgroundColor: "rgba(85, 26, 139, 0.5)",
+                        borderColor: "rgb(85, 26, 139)",
+                        yAxisID: "salesYAxis"
                     }
                 ]
             };
@@ -333,6 +350,10 @@ export default class App extends Component<AppProperties, AppState> {
                             // Format currency
                             if (tooltipItem.datasetIndex === 1) {
                                 return this.formatCurrency(tooltipItem.yLabel);
+                            }
+                            // Format currency per enrollment
+                            else if (tooltipItem.datasetIndex === 2) {
+                                return this.formatCurrency(tooltipItem.yLabel) + " per enrollment";
                             }
                             return tooltipItem.yLabel;
                         }
@@ -355,7 +376,6 @@ export default class App extends Component<AppProperties, AppState> {
                     ],
                     yAxes: [
                         {
-                            stacked: true,
                             position: "left",
                             id: "enrollmentsYAxis",
                             scaleLabel: {
@@ -367,7 +387,6 @@ export default class App extends Component<AppProperties, AppState> {
                             }
                         },
                         {
-                            stacked: true,
                             position: "right",
                             id: "salesYAxis",
                             scaleLabel: {
