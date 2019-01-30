@@ -425,17 +425,17 @@ export default class App extends Component<AppProperties, AppState> {
             return(
                 <div>
                     <Form inline style={{justifyContent: "center"}}>
-                        <FormControl componentClass="select" id="courses" onChange={this.courseChanged.bind(this)} style={selectStyle}>
+                        <FormControl type="select" id="courses" onChange={this.courseChanged.bind(this)} style={selectStyle}>
                             <option>All Courses</option>
                             {courses.map(course => <option value={course.id}>{course.courseName}</option>)}
                         </FormControl>
-                        <FormControl componentClass="select" id="platforms" onChange={this.platformChanged.bind(this)} style={selectStyle}>
+                        <FormControl type="select" id="platforms" onChange={this.platformChanged.bind(this)} style={selectStyle}>
                             {platforms.map(platform => <option value={platform}>{platform}</option>)}
                         </FormControl>
-                        <FormControl componentClass="select" id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
+                        <FormControl type="select" id="timeframeFilterNames" onChange={this.timeframeFilterChanged.bind(this)} style={selectStyle}>
                             {timeframeFilterNames.map(timeframeFilterName => <option value={timeframeFilterName}>{timeframeFilterName}</option>)}
                         </FormControl>
-                        <FormControl componentClass="select" id="frequencyNames" onChange={this.frequencyChanged.bind(this)} style={selectStyle}>
+                        <FormControl type="select" id="frequencyNames" onChange={this.frequencyChanged.bind(this)} style={selectStyle}>
                             {frequencyNames.map(frequencyName => <option value={frequencyName.key}>{frequencyName.label}</option>)}
                         </FormControl>
                     </Form>
@@ -454,8 +454,8 @@ export default class App extends Component<AppProperties, AppState> {
                         </div>
                     </div>
                     <div style={exportStyle}>
-                        <Button onClick={this.exportEnrollmentsToCSV.bind(this)} bsStyle="danger">Export Enrollments Per Day to CSV</Button>&nbsp;&nbsp;&nbsp;
-                        <Button onClick={this.exportSalesToCSV.bind(this)} bsStyle="primary">Export Sales Per Day to CSV</Button>
+                        <Button onClick={this.exportEnrollmentsToCSV.bind(this)} variant="danger">Export Enrollments Per Day to CSV</Button>&nbsp;&nbsp;&nbsp;
+                        <Button onClick={this.exportSalesToCSV.bind(this)} variant="primary">Export Sales Per Day to CSV</Button>
                     </div>
                 </div>
             );

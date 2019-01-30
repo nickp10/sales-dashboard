@@ -27,7 +27,7 @@ module.exports = {
                     loader: "babel-loader",
                     options: {
                         cacheDirectory: true,
-                        presets: ["react", "env"],
+                        presets: ["@babel/preset-react", "@babel/preset-env"],
                         plugins: ["transform-class-properties"]
                     }
                 }]
