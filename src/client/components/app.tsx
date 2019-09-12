@@ -356,7 +356,10 @@ export default class App extends Component<AppProperties, AppState> {
                             else if (tooltipItem.datasetIndex === 2) {
                                 return this.formatCurrency(tooltipItem.yLabel) + " per enrollment";
                             }
-                            return tooltipItem.yLabel;
+                            else if (tooltipItem.yLabel) {
+                                return tooltipItem.yLabel.toString();
+                            }
+                            return undefined;
                         }
                     }
                 },
