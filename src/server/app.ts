@@ -53,9 +53,9 @@ export default class App {
     }
 
     async getTransactions(req: express.Request, res: express.Response, sql: MySQLService, connection: mysql.Connection): Promise<void> {
-        const courseId = utils.coerceInt(req.query.courseId);
-        const platform = req.query.platform;
-        const timeframeFilterName = req.query.timeframeFilterName;
+        const courseId = utils.coerceInt(<string>req.query.courseId);
+        const platform = <string>req.query.platform;
+        const timeframeFilterName = <string>req.query.timeframeFilterName;
         const map = new Map<number, Map<number, Map<number, TransactionsPerDay>>>();
         if (courseId) {
             const course = await sql.selectCourse(connection, args.mysqlDatabase, courseId);
